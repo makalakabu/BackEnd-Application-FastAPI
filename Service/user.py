@@ -22,7 +22,7 @@ def create_user(db: Session, username: str, email: str, password: str) -> User:
     user = User(
         username = username,
         email = email,
-        hash_password = hash_password(password)
+        password_hash = hash_password(password)
     )
 
     db.add(user)
@@ -37,13 +37,8 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
     if not user:
         return None
     
-    if not user.is_active:
-        return None
-    
     if not verify_password(password, user.password_hash):
         return None
 
-
-
-    return None
+    return user
 
