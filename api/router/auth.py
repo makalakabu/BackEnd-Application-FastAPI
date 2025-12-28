@@ -2,8 +2,10 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
+from schema.token import Token
 from schema.user import UserPublic, UserCreate, LoginRequest
 from service.user import create_user, authenticate_user
+from core.jwt import create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -23,7 +25,8 @@ def signup(payload: UserCreate, db: Session = Depends(get_db)):
 
 @router.post(
     "/login",
-    response_model = UserPublic,
+    response_model = Token,
+    status_code=200,
     description = "Loging in existed user"
 )
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
@@ -32,4 +35,10 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid Credentials")
     
-    return user
+    token = create_access_token(
+        {
+            "sub": str(user.id)
+        }
+    )
+
+    return Token(access_token=token, user=user)

@@ -1,4 +1,5 @@
 import pytest
+import uuid
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
@@ -20,8 +21,9 @@ TestingSessionLocal = sessionmaker(
     autocommit=False
 )
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(autouse=True, scope="function")
 def create_test_database():
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
     yield
@@ -43,6 +45,25 @@ def client():
         yield client
 
     app.dependency_overrides.clear()
+
+@pytest.fixture
+def create_user(client):
+    def _create_user(
+        username: str | None = None,
+        email: str | None = None,
+        password: str = "@Test1234-",
+    ):
+        payload = {
+            "username": username or f"user_{uuid.uuid4().hex[:8]}",
+            "email": email or f"user_{uuid.uuid4().hex[:8]}@test.com",
+            "password": password,
+        }
+
+        res = client.post("/auth/signup", json=payload)
+        assert res.status_code == 201, res.text
+        return payload
+
+    return _create_user  
     
 
 

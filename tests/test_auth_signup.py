@@ -5,12 +5,12 @@ def test_signup_success(client):
         "password": "@Test1234-"
     }
 
-    res = client.post("auth/signup", json=payload)
+    res = client.post("/auth/signup", json=payload)
     assert res.status_code == 201
 
     data = res.json()
-    assert data.username == payload.username
-    assert data.email == payload.email
+    assert data["username"] == payload["username"]
+    assert data["email"] == payload["email"] 
     assert "password" not in data
     assert "password_hash" not in data
 
@@ -29,10 +29,10 @@ def test_signup_duplicate_email(client):
         "password": "@Test12345-"
     }
 
-    res1 = client.post("auth/signup", json = payload1)
+    res1 = client.post("/auth/signup", json = payload1)
     assert res1.status_code == 201
 
-    res2 = client.post("auth/signup", json = payload2)
+    res2 = client.post("/auth/signup", json = payload2)
     assert res2.status_code == 400
 
 
@@ -51,9 +51,9 @@ def test_signup_duplicate_username(client):
         "password": "@Test12345-"
     }
 
-    res1 = client.post("auth/signup", json = payload1)
+    res1 = client.post("/auth/signup", json = payload1)
     assert res1.status_code == 201
 
-    res2 = client.post("auth/signup", json = payload2)
+    res2 = client.post("/auth/signup", json = payload2)
     assert res2.status_code == 400
 
