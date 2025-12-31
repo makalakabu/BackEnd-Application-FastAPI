@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
-from api.deps import get_db
 from schema.token import Token
+from models.user import User
 from schema.user import UserPublic, UserCreate, LoginRequest
+from api.deps import get_db, get_current_user
 from service.user import create_user, authenticate_user
 from core.jwt import create_access_token
 
@@ -26,7 +27,7 @@ def signup(payload: UserCreate, db: Session = Depends(get_db)):
 @router.post(
     "/login",
     response_model = Token,
-    status_code=200,
+    status_code = 200,
     description = "Loging in existed user"
 )
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
@@ -42,3 +43,12 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     )
 
     return Token(access_token=token, user=user)
+
+@router.get(
+    "/me",
+    response_model = UserPublic,
+    status_code = 200,
+    description = "Protected Endpoint"
+)
+def me(current_user: User = Depends(get_current_user)):
+    return current_user

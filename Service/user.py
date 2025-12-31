@@ -3,6 +3,9 @@ from sqlalchemy import select
 from models.user import User
 from core.security import hash_password, verify_password
 
+def get_user_by_id(db: Session, id:int) -> User | None:
+    stmt = select(User).where(User.id == id)
+    return db.scalar(stmt)
 
 def get_user_by_username(db: Session, username:str) -> User | None:
     stmt = select(User).where(User.username == username)
