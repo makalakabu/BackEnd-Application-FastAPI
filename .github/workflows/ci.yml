@@ -16,11 +16,9 @@ jobs:
         python-version: ["3.12", "3.13"]
 
     env:
-      # Provide safe defaults for tests/CI.
-      # If your app reads SECRET_KEY from env, CI must have one.
+      PYTHONPATH:  .
       SECRET_KEY: "ci-secret-key"
       ACCESS_TOKEN_EXPIRE_MINUTES: "30"
-      # Optional: if you use a DB URL env var anywhere
       DATABASE_URL: "sqlite:///./test.db"
 
     steps:
