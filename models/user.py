@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, DateTime, Boolean
+from sqlalchemy import String, DateTime
 
 from db.db_base import Base
 
@@ -13,6 +13,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
 
+    tweets = relationship("Tweet", back_populates="user", cascade="all, delete-orphan")
 
 
 

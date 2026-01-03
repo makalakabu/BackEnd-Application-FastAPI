@@ -1,16 +1,20 @@
 import re
-from pydantic import BaseModel, EmailStr, ConfigDict,field_validator
 from datetime import datetime
+from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
+
 
 class UserPublic(BaseModel):
     username: str
-    email:  EmailStr
+    email: EmailStr
     bio: str | None = None
     image: str | None = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserCreate(UserPublic):
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
     password: str
 
     @field_validator("password")
@@ -28,11 +32,20 @@ class UserCreate(UserPublic):
             raise ValueError("Password must contain at least one special character")
         return value
 
+
 class UserInformation(UserPublic):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+class UserInTweet(BaseModel):
+    username: str
+    image: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
