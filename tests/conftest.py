@@ -64,6 +64,28 @@ def create_user(client):
         return payload
 
     return _create_user  
+
+@pytest.fixture
+def login_user(client, create_user):
+    def _login_user(user: dict | None = None):
+        if user is None:
+            user = create_user()
+
+        res = client.post(
+            "/auth/login",
+            json={
+                "email": user["email"],
+                "password": user["password"]
+            }
+        )
+        assert res.status_code == 200
+
+        token = res.json()["access_token"]
+        assert token
+
+        return user, {"Authorization": f"Bearer {token}"}
+    return _login_user
+
     
 
 

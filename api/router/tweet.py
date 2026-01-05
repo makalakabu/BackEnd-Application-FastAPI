@@ -29,7 +29,7 @@ def create_tweet_endpoint(
     response_model=list[TweetPublic],
     status_code=status.HTTP_200_OK
 )
-def get_list_of_tweet(
+def get_list_of_tweets(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=20),
     db: Session = Depends(get_db)
