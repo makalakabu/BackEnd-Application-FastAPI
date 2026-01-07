@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Response, status, Depends, Query, Path
 from sqlalchemy.orm import Session
 
-from service.tweet import create_tweet, list_tweets, get_tweet_by_id, update_tweet, delete_tweet
+from service.tweet import create_tweet, list_tweets, get_tweet_by_id, update_tweet, delete_tweet, get_feed
 from schema.tweet import TweetPublic, TweetCreate, TweetUpdate
 from api.deps import get_db, get_current_user
 from models.user import User
@@ -86,3 +86,17 @@ def delete_tweet_endpoint(
 
     delete_tweet(db=db, tweet=tweet)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@router.get(
+    "/feed",
+    status_code=status.HTTP_200_OK,
+    response_model=list[TweetPublic]
+)
+def get_feed_endpoint(
+    skip: int = Query(0, ge=0),
+    limit: int  = Query(20, ge=1, le=20),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    list_of_tweets = get_feed(db=db, user_id=current_user.id, skip=skip, limit=limit)
+    return list_of_tweets

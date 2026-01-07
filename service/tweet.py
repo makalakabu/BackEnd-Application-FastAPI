@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, or_
 from models.tweet import Tweet
+from models.follow import Follow
 
 
 def create_tweet(db: Session, body: str, user_id: int) -> Tweet:
@@ -39,3 +40,25 @@ def update_tweet(db:Session, tweet: Tweet, body: str) -> Tweet:
 def delete_tweet(db: Session, tweet: Tweet) -> None:
     db.delete(tweet)
     db.commit()
+
+def get_feed(db: Session, user_id: int,  skip: int = 0, limit: int = 20) -> list[Tweet]:
+    following_user_id = (
+        select(Follow.following_id)
+        .where(Follow.follower_id==user_id)
+    )
+
+    stmt = (
+        select(Tweet)
+        .options(selectinload(Tweet.user))
+        .where(
+            or_(
+                Tweet.user_id==user_id,
+                Tweet.user_id.in_(following_user_id)
+            )
+        )
+        .order_by(desc(Tweet.created_at))
+        .offset(skip)
+        .limit(limit)
+    )
+
+    return list(db.scalars(stmt).all())
