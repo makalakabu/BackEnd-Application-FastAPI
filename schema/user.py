@@ -11,6 +11,10 @@ class UserPublic(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class UserProfile(UserPublic):
+    followers_count: int
+    following_count: int
+
 
 class UserCreate(BaseModel):
     username: str
@@ -49,3 +53,9 @@ class UserInTweet(BaseModel):
     image: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class UserUpdate(BaseModel):
+    image: str | None = None
+    bio: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
