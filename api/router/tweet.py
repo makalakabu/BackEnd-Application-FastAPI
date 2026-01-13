@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Response, status, Depends, Query, Path
 from sqlalchemy.orm import Session
 
-from service.tweet import create_tweet, list_tweets, get_tweet_by_id, update_tweet, delete_tweet, get_feed
+from service.tweet import create_tweet, list_tweets, get_tweet_by_id, update_tweet, delete_tweet, get_feed, get_tweet_by_id
 from schema.tweet import TweetPublic, TweetCreate, TweetUpdate
-from api.deps import get_db, get_current_user
+from api.deps import get_db, get_current_user, get_current_user_optional
 from models.user import User
 
 
@@ -32,9 +32,12 @@ def create_tweet_endpoint(
 def get_list_of_tweets(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=20),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional)
 ):
-    tweet = list_tweets(db=db, skip=skip, limit=limit)
+    user_id = current_user.id if current_user else None
+
+    tweet = list_tweets(db=db, skip=skip, limit=limit, user_id=user_id)
     return tweet
 
 
@@ -50,7 +53,7 @@ def update_tweet_endpoint(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    tweet = get_tweet_by_id(db=db, tweet_id=tweet_id)
+    tweet = get_tweet_by_id(db=db, tweet_id=tweet_id, user_id=current_user.id)
     if not tweet:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -77,7 +80,7 @@ def delete_tweet_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tweet = get_tweet_by_id(db=db, tweet_id=tweet_id)
+    tweet = get_tweet_by_id(db=db, tweet_id=tweet_id, user_id=current_user.id)
     if not tweet:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tweet not found")
 
@@ -100,3 +103,21 @@ def get_feed_endpoint(
 ):
     list_of_tweets = get_feed(db=db, user_id=current_user.id, skip=skip, limit=limit)
     return list_of_tweets
+
+@router.get(
+        "/{tweet_id}",
+        response_model=TweetPublic,
+        status_code=status.HTTP_200_OK
+)
+def get_tweet_by_id_endpoint(
+    tweet_id: int,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    user_id = current_user.id if current_user else None
+
+    tweet = get_tweet_by_id(db=db, tweet_id=tweet_id, user_id=user_id)
+    if tweet is None:
+        raise HTTPException(status_code=404, detail="Tweet not found")
+
+    return tweet

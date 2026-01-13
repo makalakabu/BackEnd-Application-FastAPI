@@ -9,6 +9,7 @@ from service.user import get_user_by_id
 from db.session import SessionLocal
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
 def get_db():
@@ -23,6 +24,34 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid credentials"
+    )
+
+    try:
+        payload = decode_access_token(token)
+        sub = payload.get("sub")
+        if not sub:
+            raise credentials_exception
+        user_id = int(sub)
+    except (JWTError, ValueError, TypeError):
+        raise credentials_exception
+
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise credentials_exception
+
+    return user
+
+def get_current_user_optional(
+    token: str | None = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db),
+) -> User | None:
+    
+    if not token:
+        return None
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid credentials"

@@ -57,5 +57,6 @@ class UserInTweet(BaseModel):
 class UserUpdate(BaseModel):
     image: str | None = None
     bio: str | None = None
+    is_private: bool | None = None
 
     model_config = ConfigDict(extra="forbid")

@@ -158,6 +158,120 @@ def test_delete_tweet_forbidden_for_non_owner(client, login_user):
     )
     assert update_res.status_code == 403
 
+def test_get_tweet_by_id_public_visible_anonymous(client, login_user):
+    _, author_headers = login_user()
+
+    create_res = client.post("/tweet", json={"body": "Public tweet"}, headers=author_headers)
+    assert create_res.status_code == 201, create_res.text
+    tweet_id = create_res.json()["id"]
+
+    res = client.get(f"/tweet/{tweet_id}")
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["id"] == tweet_id
+    assert data["body"] == "Public tweet"
+
+
+def test_get_tweet_by_id_private_hidden_anonymous(client, login_user):
+    _, author_headers = login_user()
+
+    priv_res = client.patch("/user/me", json={"is_private": True}, headers=author_headers)
+    assert priv_res.status_code == 200, priv_res.text
+
+    create_res = client.post("/tweet", json={"body": "Private tweet"}, headers=author_headers)
+    assert create_res.status_code == 201, create_res.text
+    tweet_id = create_res.json()["id"]
+
+    res = client.get(f"/tweet/{tweet_id}")
+    assert res.status_code == 404, res.text
+
+
+def test_get_tweet_by_id_private_visible_to_follower(client, login_user, create_user):
+    author, author_headers = login_user()
+    priv_res = client.patch("/user/me", json={"is_private": True}, headers=author_headers)
+    assert priv_res.status_code == 200, priv_res.text
+
+    create_res = client.post("/tweet", json={"body": "Private tweet 2"}, headers=author_headers)
+    assert create_res.status_code == 201, create_res.text
+    tweet_id = create_res.json()["id"]
+
+    follower_payload = create_user()
+    _, follower_headers = login_user(follower_payload)
+
+    follow_res = client.post(f"/user/{author['username']}/follow", headers=follower_headers)
+    assert follow_res.status_code == 204, follow_res.text
+
+    res = client.get(f"/tweet/{tweet_id}", headers=follower_headers)
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["id"] == tweet_id
+    assert data["body"] == "Private tweet 2"
+
+def test_list_tweets_anonymous_only_public(client, login_user):
+    _, public_headers = login_user()
+    pub_tweet_res = client.post("/tweet", json={"body": "Public tweet"}, headers=public_headers)
+    assert pub_tweet_res.status_code == 201, pub_tweet_res.text
+    public_tweet_id = pub_tweet_res.json()["id"]
+
+    _, private_headers = login_user()
+    priv_patch = client.patch("/user/me", json={"is_private": True}, headers=private_headers)
+    assert priv_patch.status_code == 200, priv_patch.text
+
+    priv_tweet_res = client.post("/tweet", json={"body": "Private tweet"}, headers=private_headers)
+    assert priv_tweet_res.status_code == 201, priv_tweet_res.text
+    private_tweet_id = priv_tweet_res.json()["id"]
+
+    res = client.get("/tweet")
+    assert res.status_code == 200, res.text
+    data = res.json()
+
+    ids = {t["id"] for t in data}
+    assert public_tweet_id in ids
+    assert private_tweet_id not in ids
+
+
+def test_list_tweets_logged_in_non_follower_cannot_see_private(client, login_user):
+    _, private_headers = login_user()
+    priv_patch = client.patch("/user/me", json={"is_private": True}, headers=private_headers)
+    assert priv_patch.status_code == 200, priv_patch.text
+
+    priv_tweet_res = client.post("/tweet", json={"body": "Private tweet X"}, headers=private_headers)
+    assert priv_tweet_res.status_code == 201, priv_tweet_res.text
+    private_tweet_id = priv_tweet_res.json()["id"]
+
+    _, viewer_headers = login_user()
+
+    res = client.get("/tweet", headers=viewer_headers)
+    assert res.status_code == 200, res.text
+    data = res.json()
+
+    ids = {t["id"] for t in data}
+    assert private_tweet_id not in ids
+
+
+def test_list_tweets_logged_in_follower_can_see_private(client, login_user):
+    author, author_headers = login_user()
+    priv_patch = client.patch("/user/me", json={"is_private": True}, headers=author_headers)
+    assert priv_patch.status_code == 200, priv_patch.text
+
+    priv_tweet_res = client.post("/tweet", json={"body": "Private tweet Y"}, headers=author_headers)
+    assert priv_tweet_res.status_code == 201, priv_tweet_res.text
+    private_tweet_id = priv_tweet_res.json()["id"]
+
+    _, viewer_headers = login_user()
+
+    follow_res = client.post(f"/user/{author['username']}/follow", headers=viewer_headers)
+    assert follow_res.status_code == 204, follow_res.text
+
+    res = client.get("/tweet", headers=viewer_headers)
+    assert res.status_code == 200, res.text
+    data = res.json()
+
+    ids = {t["id"] for t in data}
+    assert private_tweet_id in ids
+
+
+
 
 
 
