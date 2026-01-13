@@ -3,8 +3,10 @@ from fastapi import APIRouter, HTTPException, status, Depends, Query
 
 from models.user import User
 from schema.user import UserPublic, UserProfile, UserUpdate
+from schema.tweet import TweetPublic
 from service.user import get_user_by_username
-from api.deps import get_db, get_current_user
+from api.deps import get_db, get_current_user, get_current_user_optional
+from service.tweet import get_list_tweet_by_username
 from service.user import get_user_profile_by_username, update_user_profile
 from service.follow import follow_user, unfollow_user, list_of_followers, list_of_following
 
@@ -127,3 +129,22 @@ def patch_me(
 ):
     user = update_user_profile(db=db, user=current_user, data=payload)
     return user
+
+@router.get(
+    "/{username}/tweets",
+    response_model=list[TweetPublic],
+    status_code=status.HTTP_200_OK
+)
+def get_list_of_tweets_by_username(
+    username: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=20),
+    current_user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    user_id = current_user.id if current_user else None
+    list_tweet = get_list_tweet_by_username(db=db, username=username, user_id=user_id, skip=skip, limit=limit)
+
+    if list_tweet is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not Found")
+    return list_tweet

@@ -106,3 +106,35 @@ def get_feed(db: Session, user_id: int,  skip: int = 0, limit: int = 20) -> list
     )
 
     return list(db.scalars(stmt).all())
+
+def get_list_tweet_by_username(db: Session, username: str, user_id: int | None, skip: int = 0, limit: int = 20) -> list[Tweet] | None:
+    target = db.scalar(select(User).where(User.username == username))
+    if target is None:
+        return None
+
+
+    if target.is_private:
+        if user_id is None:
+            return None
+        if user_id != target.id:
+            follow_exists = db.scalar(
+                select(Follow).where(
+                    Follow.follower_id == user_id,
+                    Follow.following_id == target.id,
+                )
+            )
+            if not follow_exists:
+                return None
+
+
+    stmt = (
+        select(Tweet)
+        .options(selectinload(Tweet.user))
+        .where(Tweet.user_id == target.id)
+        .order_by(desc(Tweet.created_at))
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(stmt).all())
+
+        

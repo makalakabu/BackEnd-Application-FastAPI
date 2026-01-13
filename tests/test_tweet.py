@@ -269,6 +269,67 @@ def test_list_tweets_logged_in_follower_can_see_private(client, login_user):
 
     ids = {t["id"] for t in data}
     assert private_tweet_id in ids
+    
+def test_user_tweets_public_visible_anonymous(client, login_user):
+    # Author (public by default)
+    author, author_headers = login_user()
+
+    t1 = client.post("/tweet", json={"body": "A1"}, headers=author_headers)
+    assert t1.status_code == 201, t1.text
+
+    t2 = client.post("/tweet", json={"body": "A2"}, headers=author_headers)
+    assert t2.status_code == 201, t2.text
+
+    # Anonymous can view public user's timeline
+    res = client.get(f"/user/{author['username']}/tweets")
+    assert res.status_code == 200, res.text
+
+    data = res.json()
+    bodies = [t["body"] for t in data]
+    assert "A1" in bodies
+    assert "A2" in bodies
+
+
+def test_user_tweets_private_hidden_anonymous(client, login_user):
+    # Author becomes private
+    author, author_headers = login_user()
+
+    priv = client.patch("/user/me", json={"is_private": True}, headers=author_headers)
+    assert priv.status_code == 200, priv.text
+
+    t1 = client.post("/tweet", json={"body": "Secret"}, headers=author_headers)
+    assert t1.status_code == 201, t1.text
+
+    # Anonymous should not be able to view private timeline (hide as 404)
+    res = client.get(f"/user/{author['username']}/tweets")
+    assert res.status_code == 404, res.text
+
+
+def test_user_tweets_private_visible_to_follower(client, login_user, create_user):
+    # Private author
+    author, author_headers = login_user()
+
+    priv = client.patch("/user/me", json={"is_private": True}, headers=author_headers)
+    assert priv.status_code == 200, priv.text
+
+    t1 = client.post("/tweet", json={"body": "Secret2"}, headers=author_headers)
+    assert t1.status_code == 201, t1.text
+
+    # Create follower and login
+    follower_payload = create_user()
+    _, follower_headers = login_user(follower_payload)
+
+    # Follow the private author
+    follow_res = client.post(f"/user/{author['username']}/follow", headers=follower_headers)
+    assert follow_res.status_code == 204, follow_res.text
+
+    # Now follower can view timeline
+    res = client.get(f"/user/{author['username']}/tweets", headers=follower_headers)
+    assert res.status_code == 200, res.text
+
+    data = res.json()
+    bodies = [t["body"] for t in data]
+    assert "Secret2" in bodies
 
 
 
