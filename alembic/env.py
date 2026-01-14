@@ -2,6 +2,11 @@ from logging.config import fileConfig
 import os
 import sys
 
+from dotenv import load_dotenv
+load_dotenv()
+from core.config import DATABASE_URL
+
+
 from sqlalchemy import create_engine, pool
 from alembic import context
 
@@ -39,7 +44,7 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     connectable = create_engine(
         DATABASE_URL,
-        connect_args={"check_same_thread": False},  # SQLite only
+        connect_args={"check_same_thread": False},  
         poolclass=pool.NullPool,
     )
 
