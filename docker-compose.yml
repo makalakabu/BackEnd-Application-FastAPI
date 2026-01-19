@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16
+    container_name: twitter_clone_db
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: twitter_clone
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    container_name: twitter_clone_api
+    ports:
+      - "8000:8000"
+    environment:
+
+      DATABASE_URL: postgresql+psycopg://app:app@db:5432/twitter_clone
+      SECRET_KEY: CHANGE_ME_IN_PROD
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

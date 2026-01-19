@@ -1,5 +1,6 @@
 import pytest
 import uuid
+import os 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker 
 from fastapi.testclient import TestClient
@@ -9,10 +10,16 @@ from main import app
 from api.deps import get_db
 
 
-DATABASE_TEST_URL = "sqlite:///./test.db"
+DATABASE_TEST_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+
+connect_args = {}
+if DATABASE_TEST_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+
+
 engine = create_engine(
     DATABASE_TEST_URL,
-    connect_args={"check_same_thread": False},  # SQLite only
+    connect_args=connect_args, 
 )
 
 TestingSessionLocal = sessionmaker(
