@@ -1,0 +1,8 @@
+Postgres cluster twitter-clone-db created
+  Username:    postgres
+  Password:    RwFMan16GRfRQfg
+  Hostname:    twitter-clone-db.internal
+  Flycast:     fdaa:3f:58a:0:1::5
+  Proxy port:  5432
+  Postgres port:  5433
+  Connection string: postgres://postgres:RwFMan16GRfRQfg@twitter-clone-db.flycast:5432
