@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Response, status, Depends, Query, Path
 from sqlalchemy.orm import Session
 
-from service.tweet import create_tweet, list_tweets, get_tweet_by_id, update_tweet, delete_tweet, get_feed, get_tweet_by_id
+from service.tweet import create_tweet, list_tweets, get_tweet_by_id, update_tweet, delete_tweet, get_feed, get_tweet_by_id, get_list_replies
 from schema.tweet import TweetPublic, TweetCreate, TweetUpdate
 from api.deps import get_db, get_current_user, get_current_user_optional
 from models.user import User
@@ -19,10 +19,31 @@ def create_tweet_endpoint(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    tweet = create_tweet(db=db, body= payload.body, user_id=current_user.id)
+    try:
+        tweet = create_tweet(db=db, body= payload.body, user_id=current_user.id, parent_id=payload.parent_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return tweet
 
 
+
+@router.get(
+    "/{tweet_id}/replies",
+    response_model=list[TweetPublic],
+    status_code=status.HTTP_200_OK
+)
+def get_list_replies_endpoint(
+    tweet_id: int = Path(..., ge=1),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=20),
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
+):
+    user_id = current_user.id if current_user else None
+    replies = get_list_replies(db=db, tweet_id=tweet_id, user_id=user_id, skip=skip, limit=limit)
+    if replies is None:
+        raise HTTPException(status_code=404, detail="Tweet not found")
+    return replies
 
 @router.get(
     "",

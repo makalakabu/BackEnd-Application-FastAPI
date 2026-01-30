@@ -6,6 +6,7 @@ from schema.user import UserInTweet
 
 class TweetCreate(BaseModel):
     body: str = Field(min_length=1, max_length=280)
+    parent_id: int | None = None
 
 
 class TweetUpdate(BaseModel):
@@ -17,5 +18,6 @@ class TweetPublic(BaseModel):
     body: str
     created_at: datetime
     user: UserInTweet
+    parent_id: int | None = None
 
     model_config = ConfigDict(from_attributes=True)

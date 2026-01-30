@@ -5,13 +5,16 @@ from models.tweet import Tweet
 from models.follow import Follow
 
 
-def create_tweet(db: Session, body: str, user_id: int) -> Tweet:
-    tweet = Tweet(body=body, user_id=user_id)
+def create_tweet(db: Session, body: str, user_id: int, parent_id: int | None = None) -> Tweet:
+    if parent_id is not None:
+        parent = get_tweet_by_id(db=db, tweet_id=parent_id, user_id=user_id)
+        if parent is None:
+            raise ValueError("Parent tweet not found or not visible")
 
+    tweet = Tweet(body=body, user_id=user_id, parent_id=parent_id)
     db.add(tweet)
     db.commit()
     db.refresh(tweet)
-
     return tweet
 
 def get_tweet_by_id(db:Session, tweet_id:int, user_id: int | None) -> Tweet | None:
@@ -65,6 +68,7 @@ def list_tweets(db: Session, skip: int = 0, limit: int = 20, user_id: int | None
         .join(User, User.id == Tweet.user_id)
         .options(selectinload(Tweet.user))
         .where(allowed_author)
+        .where(Tweet.parent_id.is_(None))
         .order_by(desc(Tweet.created_at))
         .offset(skip)
         .limit(limit)
@@ -100,6 +104,7 @@ def get_feed(db: Session, user_id: int,  skip: int = 0, limit: int = 20) -> list
                 Tweet.user_id.in_(following_user_id)
             )
         )
+        .where(Tweet.parent_id.is_(None))
         .order_by(desc(Tweet.created_at))
         .offset(skip)
         .limit(limit)
@@ -131,10 +136,45 @@ def get_list_tweet_by_username(db: Session, username: str, user_id: int | None, 
         select(Tweet)
         .options(selectinload(Tweet.user))
         .where(Tweet.user_id == target.id)
+        .where(Tweet.parent_id.is_(None))
         .order_by(desc(Tweet.created_at))
         .offset(skip)
         .limit(limit)
     )
+    return list(db.scalars(stmt).all())
+
+
+def get_list_replies(db: Session, tweet_id: int, user_id: int | None = None, skip: int = 0, limit: int = 20) -> list[Tweet] | None:
+    parent = get_tweet_by_id(db=db, tweet_id=tweet_id, user_id=user_id)
+    if parent is None:
+        return None
+    
+    viewer_id = literal(user_id)
+    
+    allowed_author = or_(
+        User.is_private == False,
+        User.id == viewer_id,
+        exists(
+            select(1).where(
+                and_(
+                    Follow.follower_id == viewer_id,
+                    Follow.following_id == User.id,
+                )
+            )
+        ),
+    )
+
+    stmt = (
+        select(Tweet)
+        .join(User, Tweet.user_id == User.id)
+        .options(selectinload(Tweet.user))
+        .where(allowed_author)
+        .where(Tweet.parent_id == tweet_id)
+        .order_by(desc(Tweet.created_at))
+        .offset(skip)
+        .limit(limit)
+    )
+
     return list(db.scalars(stmt).all())
 
         
