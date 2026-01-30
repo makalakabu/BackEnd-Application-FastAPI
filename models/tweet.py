@@ -6,7 +6,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.db_base import Base
 
-
 class Tweet(Base):
     __tablename__ = "tweets"
 
