@@ -32,6 +32,7 @@ pydantic_core==2.41.5
 Pygments==2.19.2
 pytest==9.0.2
 python-dotenv==1.2.1
+redis==5.0.8
 python-jose==3.5.0
 PyYAML==6.0.3
 rsa==4.9.1
@@ -45,4 +46,3 @@ uvloop==0.22.1
 watchfiles==1.1.1
 websockets==15.0.1
 psycopg2-binary
-

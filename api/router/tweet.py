@@ -1,18 +1,31 @@
-from fastapi import APIRouter, HTTPException, Response, status, Depends, Query, Path
+from fastapi import APIRouter, HTTPException, Response, Request, status, Depends, Query, Path
 from sqlalchemy.orm import Session
 
 from service.tweet import create_tweet, list_tweets, get_tweet_by_id, update_tweet, delete_tweet, get_feed, get_tweet_by_id, get_list_replies
 from schema.tweet import TweetPublic, TweetCreate, TweetUpdate
-from api.deps import get_db, get_current_user, get_current_user_optional
+from api.deps import get_db, get_current_user, get_current_user_optional, rate_limit, user_key
 from models.user import User
 
+from core.config import TWEET_RATE_LIMIT, TWEET_RATE_WINDOW_SECOND
 
 router = APIRouter(prefix="/tweet", tags=["tweet"])
+
+async def tweet_rate_limit(request: Request, current_user = Depends(get_current_user)) -> None:
+    limiter =  rate_limit(
+        name="tweet",
+        limit=TWEET_RATE_LIMIT,
+        window_second=TWEET_RATE_WINDOW_SECOND,
+        key_builder=user_key(current_user.id)
+    )
+
+    await limiter(request)
+
 
 @router.post(
     "",
     response_model=TweetPublic,
-    status_code=status.HTTP_201_CREATED
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(tweet_rate_limit)]
 )
 def create_tweet_endpoint(
     payload: TweetCreate,
@@ -30,7 +43,7 @@ def create_tweet_endpoint(
 @router.get(
     "/{tweet_id}/replies",
     response_model=list[TweetPublic],
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
 )
 def get_list_replies_endpoint(
     tweet_id: int = Path(..., ge=1),
@@ -66,7 +79,8 @@ def get_list_of_tweets(
 @router.patch(
     "/{tweet_id}",
     response_model=TweetPublic,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(tweet_rate_limit)]
 )
 def update_tweet_endpoint(
     tweet_id: int = Path(..., ge=1),

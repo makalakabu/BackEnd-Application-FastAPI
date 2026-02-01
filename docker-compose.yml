@@ -22,8 +22,15 @@ services:
       SECRET_KEY: CHANGE_ME_IN_PROD
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       - db
+  
+  redis:
+    image: redis:7
+    container_name: twitter_clone_redis
+    ports:
+      - "6379:6379"
 
 volumes:
   pgdata:
