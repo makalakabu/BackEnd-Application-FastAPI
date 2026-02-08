@@ -13,7 +13,7 @@ from service.follow import follow_user, unfollow_user, list_of_followers, list_o
 router = APIRouter(prefix="/user", tags=["user"])
 
 
-@router.post("/{username}/follow", status_code=status.HTTP_200_OK)
+@router.post("/{username}/follow", status_code=status.HTTP_204_NO_CONTENT)
 def follow_username(
     username: str,
     db: Session = Depends(get_db),
@@ -35,7 +35,7 @@ def follow_username(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     
 
-@router.delete("/{username}/follow", status_code=status.HTTP_200_OK)
+@router.delete("/{username}/follow", status_code=status.HTTP_204_NO_CONTENT)
 def unfollow_username(
     username: str,
     db: Session = Depends(get_db),
@@ -52,6 +52,48 @@ def unfollow_username(
         unfollow_user(db=db, follower_id=current_user.id, following_id=target.id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.get(
+    "/follow-request",
+    response_model=list[UserPublic],
+    status_code=status.HTTP_200_OK
+)
+def get_list_of_follow_request(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=20),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    follow_request = list_of_follow_request(db=db, user_id=current_user.id, skip=skip, limit=limit)
+    return follow_request
+
+@router.post(
+    "/follow-request/{requester_id}/accept",
+    status_code=status.HTTP_200_OK
+)
+def post_accept_follow_request(
+    requester_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        accept_follow_request(db=db, user_id=requester_id, target_id=current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+@router.post(
+    "/follow-request/{requester_id}/reject",
+    status_code=status.HTTP_200_OK
+)
+def post_reject_follow_request(
+    requester_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        delete_follow_request(db=db, user_id=requester_id, target_id=current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 @router.get(
     "/{username}/followers",
@@ -151,48 +193,3 @@ def get_list_of_tweets_by_username(
     if list_tweet is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not Found")
     return list_tweet
-
-@router.get(
-    "/follow-request",
-    response_model=list[UserPublic],
-    status_code=status.HTTP_200_OK
-)
-
-def get_list_of_follow_request(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=20),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    follow_request = list_of_follow_request(db=db, user_id=current_user.id, skip=skip, limit=limit)
-    return follow_request
-
-@router.post(
-    "/follow-request/{requester_id}/accept",
-    status_code=status.HTTP_200_OK
-)
-def post_accept_follow_request(
-    requester_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    try:
-        accept_follow_request(db=db, user_id=requester_id, target_id=current_user.id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-@router.post(
-    "/follow-request/{requester_id}/reject",
-    status_code=status.HTTP_200_OK
-)
-def post_reject_follow_request(
-    requester_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    try:
-        delete_follow_request(db=db, user_id=requester_id, target_id=current_user.id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-

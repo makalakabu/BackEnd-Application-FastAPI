@@ -28,6 +28,10 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -122,4 +126,3 @@ def user_key(user_id: int) -> Callable:
     def _user_key(_: Request) -> str:
         return f"user:{user_id}"
     return _user_key
-

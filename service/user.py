@@ -46,9 +46,6 @@ def create_user(db: Session, username: str, email: str, password: str) -> User:
     )
 
     db.add(user)
-    db.commit()
-    db.refresh(user)
-
     return user
 
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
@@ -69,7 +66,4 @@ def update_user_profile(db: Session, user: User, data: UserUpdate) -> User:
         setattr(user, key, value)
 
     db.add(user)
-    db.commit()
-    db.refresh(user)
-
     return user

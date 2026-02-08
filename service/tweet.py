@@ -13,8 +13,7 @@ def create_tweet(db: Session, body: str, user_id: int, parent_id: int | None = N
 
     tweet = Tweet(body=body, user_id=user_id, parent_id=parent_id)
     db.add(tweet)
-    db.commit()
-    db.refresh(tweet)
+    db.flush()
     return tweet
 
 def get_tweet_by_id(db:Session, tweet_id:int, user_id: int | None) -> Tweet | None:
@@ -80,14 +79,10 @@ def list_tweets(db: Session, skip: int = 0, limit: int = 20, user_id: int | None
 def update_tweet(db:Session, tweet: Tweet, body: str) -> Tweet:
     tweet.body = body
     db.add(tweet)
-    db.commit()
-    db.refresh(tweet)
-
     return tweet
 
 def delete_tweet(db: Session, tweet: Tweet) -> None:
     db.delete(tweet)
-    db.commit()
 
 def get_feed(db: Session, user_id: int,  skip: int = 0, limit: int = 20) -> list[Tweet]:
     following_user_id = (

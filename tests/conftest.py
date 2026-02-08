@@ -10,7 +10,7 @@ from main import app
 from api.deps import get_db
 
 
-DATABASE_TEST_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+DATABASE_TEST_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
 
 connect_args = {}
 if DATABASE_TEST_URL.startswith("sqlite"):
@@ -41,6 +41,10 @@ def override_get_db():
     db = TestingSessionLocal()
     try:
         yield db
+        db.commit()
+    except:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -94,7 +98,5 @@ def login_user(client, create_user):
     return _login_user
 
     
-
-
 
 

@@ -1,3 +1,12 @@
+from core.jwt import decode_access_token
+
+
+def _user_id_from_headers(headers: dict) -> int:
+    token = headers["Authorization"].split(" ", 1)[1]
+    payload = decode_access_token(token)
+    return int(payload["sub"])
+
+
 def test_tweet_create_sucessful(client, login_user):
     _, header = login_user()
     
@@ -200,6 +209,9 @@ def test_get_tweet_by_id_private_visible_to_follower(client, login_user, create_
 
     follow_res = client.post(f"/user/{author['username']}/follow", headers=follower_headers)
     assert follow_res.status_code == 204, follow_res.text
+    requester_id = _user_id_from_headers(follower_headers)
+    accept_res = client.post(f"/user/follow-request/{requester_id}/accept", headers=author_headers)
+    assert accept_res.status_code == 200, accept_res.text
 
     res = client.get(f"/tweet/{tweet_id}", headers=follower_headers)
     assert res.status_code == 200, res.text
@@ -262,6 +274,9 @@ def test_list_tweets_logged_in_follower_can_see_private(client, login_user):
 
     follow_res = client.post(f"/user/{author['username']}/follow", headers=viewer_headers)
     assert follow_res.status_code == 204, follow_res.text
+    requester_id = _user_id_from_headers(viewer_headers)
+    accept_res = client.post(f"/user/follow-request/{requester_id}/accept", headers=author_headers)
+    assert accept_res.status_code == 200, accept_res.text
 
     res = client.get("/tweet", headers=viewer_headers)
     assert res.status_code == 200, res.text
@@ -315,6 +330,9 @@ def test_user_tweets_private_visible_to_follower(client, login_user, create_user
 
     follow_res = client.post(f"/user/{author['username']}/follow", headers=follower_headers)
     assert follow_res.status_code == 204, follow_res.text
+    requester_id = _user_id_from_headers(follower_headers)
+    accept_res = client.post(f"/user/follow-request/{requester_id}/accept", headers=author_headers)
+    assert accept_res.status_code == 200, accept_res.text
 
     res = client.get(f"/user/{author['username']}/tweets", headers=follower_headers)
     assert res.status_code == 200, res.text
@@ -322,10 +340,6 @@ def test_user_tweets_private_visible_to_follower(client, login_user, create_user
     data = res.json()
     bodies = [t["body"] for t in data]
     assert "Secret2" in bodies
-
-
-
-
 
 
 
