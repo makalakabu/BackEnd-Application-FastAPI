@@ -167,6 +167,61 @@ def test_delete_tweet_forbidden_for_non_owner(client, login_user):
     )
     assert update_res.status_code == 403
 
+def test_update_tweet_invalidate_cache_called(client, login_user, monkeypatch):
+    import service.tweet as tweet_service
+
+    _, headers = login_user()
+    create_res = client.post(
+        "/tweet",
+        json={"body": "Cache me"},
+        headers=headers,
+    )
+    assert create_res.status_code == 201, create_res.text
+    tweet_id = create_res.json()["id"]
+
+    calls = []
+
+    def fake_invalidate_cache_by_pattern(*, r, match: str):
+        calls.append(match)
+        return 1
+
+    monkeypatch.setattr(tweet_service, "invalidate_cache_by_pattern", fake_invalidate_cache_by_pattern)
+
+    update_res = client.patch(
+        f"/tweet/{tweet_id}",
+        json={"body": "Updated body"},
+        headers=headers,
+    )
+    assert update_res.status_code == 200, update_res.text
+    assert calls == [f"v1:tweet:{tweet_id}:viewer:*"]
+
+def test_delete_tweet_invalidate_cache_called(client, login_user, monkeypatch):
+    import service.tweet as tweet_service
+
+    _, headers = login_user()
+    create_res = client.post(
+        "/tweet",
+        json={"body": "Cache me delete"},
+        headers=headers,
+    )
+    assert create_res.status_code == 201, create_res.text
+    tweet_id = create_res.json()["id"]
+
+    calls = []
+
+    def fake_invalidate_cache_by_pattern(*, r, match: str):
+        calls.append(match)
+        return 1
+
+    monkeypatch.setattr(tweet_service, "invalidate_cache_by_pattern", fake_invalidate_cache_by_pattern)
+
+    delete_res = client.delete(
+        f"/tweet/{tweet_id}",
+        headers=headers,
+    )
+    assert delete_res.status_code == 204, delete_res.text
+    assert calls == [f"v1:tweet:{tweet_id}:viewer:*"]
+
 def test_get_tweet_by_id_public_visible_anonymous(client, login_user):
     _, author_headers = login_user()
 
@@ -342,4 +397,71 @@ def test_user_tweets_private_visible_to_follower(client, login_user, create_user
     assert "Secret2" in bodies
 
 
+def test_get_tweet_by_id_cache_hit_uses_cache(client, login_user, monkeypatch):
+    import service.tweet as tweet_service
+    import json
+
+    _, author_headers = login_user()
+
+    create_res = client.post("/tweet", json={"body": "DB body"}, headers=author_headers)
+    assert create_res.status_code == 201, create_res.text
+    tweet_id = create_res.json()["id"]
+
+    cached_payload = {
+        "id": tweet_id,
+        "body": "Cached body",
+        "created_at": "2024-01-01T00:00:00",
+        "parent_id": None,
+        "user": {"username": "cached_user", "image": None},
+    }
+    expected_key = f"v1:tweet:{tweet_id}:viewer:anon"
+
+    def fake_get(key: str):
+        assert key == expected_key
+        return json.dumps(cached_payload)
+
+    def fake_setex(*_args, **_kwargs):
+        raise AssertionError("setex should not be called on cache hit")
+
+    monkeypatch.setattr(tweet_service.redis_client, "get", fake_get)
+    monkeypatch.setattr(tweet_service.redis_client, "setex", fake_setex)
+
+    res = client.get(f"/tweet/{tweet_id}")
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["body"] == "Cached body"
+
+
+def test_get_tweet_by_id_cache_miss_sets_cache(client, login_user, monkeypatch):
+    import service.tweet as tweet_service
+    import json
+
+    _, author_headers = login_user()
+
+    create_res = client.post("/tweet", json={"body": "DB body"}, headers=author_headers)
+    assert create_res.status_code == 201, create_res.text
+    tweet_id = create_res.json()["id"]
+
+    expected_key = f"v1:tweet:{tweet_id}:viewer:anon"
+    captured = {}
+
+    def fake_get(_key: str):
+        return None
+
+    def fake_setex(key: str, ttl: int, value: str):
+        captured["key"] = key
+        captured["ttl"] = ttl
+        captured["value"] = value
+
+    monkeypatch.setattr(tweet_service.redis_client, "get", fake_get)
+    monkeypatch.setattr(tweet_service.redis_client, "setex", fake_setex)
+
+    res = client.get(f"/tweet/{tweet_id}")
+    assert res.status_code == 200, res.text
+
+    assert captured["key"] == expected_key
+    assert captured["ttl"] == tweet_service.TWEET_REDIS_TTL_SECONDS
+    payload = json.loads(captured["value"])
+    assert payload["id"] == tweet_id
+    assert payload["body"] == "DB body"
 

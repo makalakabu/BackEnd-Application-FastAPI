@@ -41,10 +41,6 @@ def override_get_db():
     db = TestingSessionLocal()
     try:
         yield db
-        db.commit()
-    except:
-        db.rollback()
-        raise
     finally:
         db.close()
 
@@ -98,5 +94,4 @@ def login_user(client, create_user):
     return _login_user
 
     
-
 

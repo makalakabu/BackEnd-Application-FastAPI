@@ -1,8 +1,27 @@
+import json
+from typing import Any
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select, desc, or_, literal, exists, and_
+
+from db.redis import redis_client, invalidate_cache_by_pattern
 from models.user import User
 from models.tweet import Tweet
 from models.follow import Follow
+from schema.tweet import TweetPublic
+
+from core.config import TWEET_REDIS_TTL_SECONDS 
+
+def serialize_tweet_public_redis(tweet: Tweet) -> dict[str, Any]:
+    dto = TweetPublic.model_validate(tweet)
+    return jsonable_encoder(dto)
+
+def tweet_redis_cache_key(tweet_id: int, user_id:int|None) -> str:
+    viewer = str(user_id) if user_id else "anon"
+    return f"v1:tweet:{tweet_id}:viewer:{viewer}"
+
+def tweet_redis_invalidation_pattern(tweet_id: int) -> str:
+    return f"v1:tweet:{tweet_id}:viewer:*"
 
 
 def create_tweet(db: Session, body: str, user_id: int, parent_id: int | None = None) -> Tweet:
@@ -13,7 +32,8 @@ def create_tweet(db: Session, body: str, user_id: int, parent_id: int | None = N
 
     tweet = Tweet(body=body, user_id=user_id, parent_id=parent_id)
     db.add(tweet)
-    db.flush()
+    db.commit()
+    db.refresh(tweet)
     return tweet
 
 def get_tweet_by_id(db:Session, tweet_id:int, user_id: int | None) -> Tweet | None:
@@ -45,6 +65,32 @@ def get_tweet_by_id(db:Session, tweet_id:int, user_id: int | None) -> Tweet | No
         return None
     
     return tweet
+
+def get_tweet_public_by_id_cached(db: Session, tweet_id: int, user_id: int | None) -> dict[str, Any] | None:
+
+    cache_key = tweet_redis_cache_key(tweet_id=tweet_id, user_id=user_id)
+    try:
+        cached = redis_client.get(cache_key)
+        if cached:
+            try:
+                return json.loads(cached)
+            except json.JSONDecodeError:
+                pass
+    except Exception:
+        pass
+
+    tweet = get_tweet_by_id(db=db, tweet_id=tweet_id, user_id=user_id)
+    if tweet is None:
+        return None
+
+    payload = serialize_tweet_public_redis(tweet=tweet)
+
+    try:
+        redis_client.setex(cache_key, TWEET_REDIS_TTL_SECONDS, json.dumps(payload))
+    except Exception:
+        pass
+
+    return payload
 
 def list_tweets(db: Session, skip: int = 0, limit: int = 20, user_id: int | None = None) -> list[Tweet]:
     viewer_id = literal(user_id)  
@@ -79,10 +125,21 @@ def list_tweets(db: Session, skip: int = 0, limit: int = 20, user_id: int | None
 def update_tweet(db:Session, tweet: Tweet, body: str) -> Tweet:
     tweet.body = body
     db.add(tweet)
+    db.commit()
+    db.refresh(tweet)
+
+    match = tweet_redis_invalidation_pattern(tweet_id=tweet.id)
+    invalidate_cache_by_pattern(r=redis_client, match=match)
+
     return tweet
 
 def delete_tweet(db: Session, tweet: Tweet) -> None:
+    tweet_id = tweet.id
     db.delete(tweet)
+    db.commit()
+
+    match = tweet_redis_invalidation_pattern(tweet_id=tweet_id)
+    invalidate_cache_by_pattern(r=redis_client, match=match)
 
 def get_feed(db: Session, user_id: int,  skip: int = 0, limit: int = 20) -> list[Tweet]:
     following_user_id = (

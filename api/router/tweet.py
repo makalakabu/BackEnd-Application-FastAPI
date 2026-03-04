@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Response, Request, status, Depends, Query, Path
 from sqlalchemy.orm import Session
 
-from service.tweet import create_tweet, list_tweets, get_tweet_by_id, update_tweet, delete_tweet, get_feed, get_tweet_by_id, get_list_replies
+from service.tweet import create_tweet, list_tweets, get_tweet_by_id, get_tweet_public_by_id_cached, update_tweet, delete_tweet, get_feed, get_tweet_by_id, get_list_replies
 from schema.tweet import TweetPublic, TweetCreate, TweetUpdate
 from api.deps import get_db, get_current_user, get_current_user_optional, rate_limit, user_key
 from models.user import User
@@ -151,7 +151,7 @@ def get_tweet_by_id_endpoint(
 ):
     user_id = current_user.id if current_user else None
 
-    tweet = get_tweet_by_id(db=db, tweet_id=tweet_id, user_id=user_id)
+    tweet = get_tweet_public_by_id_cached(db=db, tweet_id=tweet_id, user_id=user_id)
     if tweet is None:
         raise HTTPException(status_code=404, detail="Tweet not found")
 

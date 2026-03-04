@@ -24,6 +24,7 @@ def follow_user(db: Session, follower_id: int, following_id: int) -> None:
         following_id=following_id
     )
     db.add(follow)
+    db.commit()
 
 
 def unfollow_user(db: Session, follower_id: int, following_id: int) -> None:
@@ -42,6 +43,7 @@ def unfollow_user(db: Session, follower_id: int, following_id: int) -> None:
 
 
     db.delete(unfollow)
+    db.commit()
 
 def list_of_following(db: Session, user_id: int,  skip: int = 0, limit: int = 20) -> list[User]:
     stmt = (
@@ -90,6 +92,7 @@ def create_follow_request(db: Session, user_id: int, target_id:int) -> None:
     follow_request = FollowRequest(requester_id=user_id, target_id=target_id)
     
     db.add(follow_request)
+    db.commit()
 
 def accept_follow_request(db: Session, user_id: int, target_id: int) -> None:
     follow_request = db.scalar(
@@ -104,6 +107,7 @@ def accept_follow_request(db: Session, user_id: int, target_id: int) -> None:
     follow = Follow(follower_id=user_id, following_id=target_id)
     db.add(follow)
     db.delete(follow_request)
+    db.commit()
 
 def delete_follow_request(db: Session, user_id: int, target_id: int) -> None:
     follow_request = db.scalar(
@@ -116,6 +120,7 @@ def delete_follow_request(db: Session, user_id: int, target_id: int) -> None:
         raise ValueError("Follow Request Not Found")
     
     db.delete(follow_request)
+    db.commit()
         
 
 def list_of_follow_request(db: Session, user_id: int, skip: int = 0, limit: int = 20) -> list[User]:
